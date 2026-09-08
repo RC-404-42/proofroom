@@ -535,6 +535,7 @@
       title.addEventListener("focus", () => setActivePane(i));
       pane.querySelector(".copy-button").addEventListener("click", () => copyPane(i));
       pane.querySelector(".paste-button").addEventListener("click", () => pastePane(i));
+      pane.querySelector(".clear-button").addEventListener("click", () => clearPane(i));
       grid.append(pane);
     }
     setActivePane(Math.min(state.activePane, state.paneCount - 1));
@@ -577,6 +578,24 @@
       showToast("瀏覽器未允許讀取剪貼簿，請使用 Ctrl＋V");
       grid.querySelector(`.editor-pane[data-index="${index}"] .text-editor`).focus();
     }
+  }
+
+  function clearPane(index) {
+    if (!state.panes[index].text) {
+      showToast(`${letters[index]} 稿目前沒有文字`);
+      return;
+    }
+    const paneName = state.panes[index].name || `${letters[index]} 稿`;
+    if (!window.confirm(`確定要清空「${paneName}」的全部文字嗎？`)) return;
+    const editor = grid.querySelector(`.editor-pane[data-index="${index}"] .text-editor`);
+    state.panes[index].text = "";
+    editor.value = "";
+    editor.scrollTop = 0;
+    editor.scrollLeft = 0;
+    save();
+    renderComparison();
+    editor.focus();
+    showToast(`${letters[index]} 稿已清空`);
   }
 
   function showToast(message) {

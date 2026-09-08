@@ -198,6 +198,9 @@ button { color: inherit; }
 .pane-title { min-width: 0; width: 100%; border-color: transparent; background: transparent; border-radius: 6px; padding: 5px 6px; font-size: 13px; font-weight: 650; }
 .pane-actions { display: flex; gap: 5px; }
 .pane-actions .icon-button { width: 32px; height: 32px; border-color: transparent; background: transparent; }
+.pane-actions .clear-button { color: #9b8290; }
+.pane-actions .clear-button:hover { color: var(--danger); background: rgba(255, 123, 138, .1); border-color: rgba(255, 123, 138, .28); }
+.pane-stats { color: #e1e4ed; font-weight: 700; letter-spacing: .015em; }
 
 .editor-wrap { position: relative; min-height: 0; background: #0d0f14; overflow: hidden; }
 .highlight-layer, .text-editor {
