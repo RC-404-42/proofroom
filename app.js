@@ -9,6 +9,8 @@
     paneCount: 3,
     mode: "smart",
     highlight: true,
+    syncScroll: false,
+    detailView: false,
     activePane: 0,
     panes: Array.from({ length: MAX_PANES }, (_, i) => ({ name: defaultNames[i], text: "" })),
     matches: [],
@@ -24,9 +26,14 @@
   const caseSensitive = document.querySelector("#caseSensitive");
   const allPanes = document.querySelector("#allPanes");
   const findCount = document.querySelector("#findCount");
+  const editorGrid = document.querySelector("#editorGrid");
+  const detailView = document.querySelector("#detailView");
+  const detailGrid = document.querySelector("#detailGrid");
+  const detailRowCount = document.querySelector("#detailRowCount");
   const toast = document.querySelector("#toast");
   let renderTimer = 0;
   let toastTimer = 0;
+  let syncingScroll = false;
 
   function restore() {
     try {
@@ -35,6 +42,8 @@
       state.paneCount = [2, 3, 4].includes(saved.paneCount) ? saved.paneCount : 3;
       state.mode = saved.mode === "line" ? "line" : "smart";
       state.highlight = saved.highlight !== false;
+      state.syncScroll = saved.syncScroll === true;
+      state.detailView = saved.detailView === true;
       if (Array.isArray(saved.panes)) {
         saved.panes.slice(0, MAX_PANES).forEach((pane, i) => {
           state.panes[i].name = typeof pane.name === "string" ? pane.name : defaultNames[i];
@@ -52,6 +61,8 @@
         paneCount: state.paneCount,
         mode: state.mode,
         highlight: state.highlight,
+        syncScroll: state.syncScroll,
+        detailView: state.detailView,
         panes: state.panes,
       }));
     } catch (_) {
@@ -192,6 +203,144 @@
     return { lineSets, marks };
   }
 
+  function buildDetailRows(texts) {
+    const lineSets = texts.map(text => text.split("\n"));
+    if (state.mode === "line") {
+      const length = Math.max(...lineSets.map(lines => lines.length));
+      return Array.from({ length }, (_, lineIndex) => ({
+        cells: lineSets.map(lines => lineIndex < lines.length
+          ? { text: lines[lineIndex], lineIndex }
+          : null),
+      }));
+    }
+
+    const baseLines = lineSets[0];
+    const matchedByPane = Array.from({ length: state.paneCount }, () => new Map());
+    const extraBuckets = new Map();
+
+    for (let paneIndex = 1; paneIndex < state.paneCount; paneIndex += 1) {
+      const pairs = buildLinePairs(baseLines, lineSets[paneIndex], "smart");
+      const usedVariantLines = new Set();
+      pairs.forEach(([baseIndex, variantIndex]) => {
+        matchedByPane[paneIndex].set(baseIndex, variantIndex);
+        usedVariantLines.add(variantIndex);
+      });
+
+      lineSets[paneIndex].forEach((_, variantIndex) => {
+        if (usedVariantLines.has(variantIndex)) return;
+        const following = pairs
+          .filter(([, pairedVariant]) => pairedVariant > variantIndex)
+          .sort((a, b) => a[1] - b[1])[0];
+        const position = following ? following[0] : baseLines.length;
+        if (!extraBuckets.has(position)) {
+          extraBuckets.set(position, Array.from({ length: state.paneCount }, () => []));
+        }
+        extraBuckets.get(position)[paneIndex].push(variantIndex);
+      });
+    }
+
+    const rows = [];
+    for (let position = 0; position <= baseLines.length; position += 1) {
+      const bucket = extraBuckets.get(position);
+      if (bucket) {
+        const extraRowCount = Math.max(...bucket.map(items => items.length));
+        for (let extraIndex = 0; extraIndex < extraRowCount; extraIndex += 1) {
+          rows.push({
+            cells: lineSets.map((lines, paneIndex) => {
+              const lineIndex = bucket[paneIndex]?.[extraIndex];
+              return Number.isInteger(lineIndex) ? { text: lines[lineIndex], lineIndex } : null;
+            }),
+          });
+        }
+      }
+      if (position < baseLines.length) {
+        rows.push({
+          cells: lineSets.map((lines, paneIndex) => {
+            if (paneIndex === 0) return { text: baseLines[position], lineIndex: position };
+            const lineIndex = matchedByPane[paneIndex].get(position);
+            return Number.isInteger(lineIndex) ? { text: lines[lineIndex], lineIndex } : null;
+          }),
+        });
+      }
+    }
+    return rows;
+  }
+
+  function renderDetailText(text, references) {
+    if (!text) return '<span aria-hidden="true">—</span>';
+    if (!state.highlight || !references.length) return escapeHtml(text);
+    if (references.some(reference => reference === text)) {
+      return `<mark class="detail-exact">${escapeHtml(text)}</mark>`;
+    }
+    const marks = new Uint8Array(text.length);
+    references.forEach(reference => {
+      const [, ranges] = lcsTokenRanges(reference, text);
+      ranges.forEach(([start, end]) => marks.fill(1, start, end));
+    });
+    const boundaries = new Set([0, text.length]);
+    for (let i = 1; i < marks.length; i += 1) {
+      if (marks[i] !== marks[i - 1]) boundaries.add(i);
+    }
+    const sorted = [...boundaries].sort((a, b) => a - b);
+    let html = "";
+    for (let i = 0; i < sorted.length - 1; i += 1) {
+      const start = sorted[i];
+      const end = sorted[i + 1];
+      const part = escapeHtml(text.slice(start, end));
+      html += marks[start] ? `<mark class="detail-common">${part}</mark>` : part;
+    }
+    return html;
+  }
+
+  function renderDetailComparison(texts) {
+    if (!texts.some(text => text.length)) {
+      detailGrid.style.gridTemplateColumns = "1fr";
+      detailGrid.innerHTML = '<div class="detail-empty-state">貼上至少兩份稿件後，這裡會顯示逐句對照。</div>';
+      detailRowCount.textContent = "0 組對應句";
+      return;
+    }
+
+    const rows = buildDetailRows(texts);
+    detailGrid.style.gridTemplateColumns = `44px repeat(${state.paneCount}, minmax(260px, 1fr))`;
+    let html = '<div class="detail-column-header detail-gutter" aria-hidden="true"></div>';
+    for (let paneIndex = 0; paneIndex < state.paneCount; paneIndex += 1) {
+      html += `<div class="detail-column-header ${paneIndex === 0 ? "is-base" : ""}">
+        <span class="detail-letter">${letters[paneIndex]}</span><strong>${escapeHtml(state.panes[paneIndex].name || `${letters[paneIndex]} 稿`)}</strong>
+        <small>${paneIndex === 0 ? "COMPARISON BASE" : "MATCHED DRAFT"}</small>
+      </div>`;
+    }
+
+    rows.forEach((row, rowIndex) => {
+      const populated = row.cells.filter(cell => cell && cell.text.length);
+      let bestRowScore = 0;
+      for (let a = 0; a < populated.length; a += 1) {
+        for (let b = a + 1; b < populated.length; b += 1) {
+          bestRowScore = Math.max(bestRowScore, diceSimilarity(populated[a].text, populated[b].text));
+        }
+      }
+      html += `<div class="detail-row-number ${bestRowScore >= 0.25 ? "is-strong" : ""}"><span>${rowIndex + 1}</span></div>`;
+      row.cells.forEach(cell => {
+        const text = cell?.text || "";
+        const references = row.cells
+          .filter(other => other && other !== cell && other.text.length)
+          .map(other => other.text);
+        const scores = references.map(reference => diceSimilarity(text, reference));
+        const bestScore = scores.length ? Math.max(...scores) : 0;
+        const isExact = Boolean(text) && references.some(reference => reference === text);
+        const className = !text
+          ? "is-empty"
+          : isExact
+            ? "is-exact"
+            : bestScore >= 0.25
+              ? "is-similar is-focus"
+              : "is-different";
+        html += `<div class="detail-cell ${className}">${renderDetailText(text, references)}${cell ? `<span class="detail-line-tag">L${cell.lineIndex + 1}</span>` : ""}</div>`;
+      });
+    });
+    detailGrid.innerHTML = html;
+    detailRowCount.textContent = `${rows.length.toLocaleString()} 組對應句`;
+  }
+
   function getSearchRanges(text, paneIndex) {
     if (!findInput.value) return [];
     if (!allPanes.checked && paneIndex !== state.activePane) return [];
@@ -310,7 +459,10 @@
       syncScroll(editor, layer);
     });
     const overall = calculateOverallSimilarity(texts);
-    summary.textContent = overall === null ? "等待至少兩份稿件" : `整體一致度 ${overall}% · ${state.mode === "smart" ? "智慧相似" : "逐行對比"}`;
+    if (state.detailView) renderDetailComparison(texts);
+    summary.textContent = overall === null
+      ? "等待至少兩份稿件"
+      : `整體一致度 ${overall}% · ${state.mode === "smart" ? "智慧相似" : "逐行對比"}${state.detailView ? " · 精準對照" : ""}`;
   }
 
   function scheduleRender() {
@@ -321,6 +473,33 @@
   function syncScroll(editor, layer) {
     layer.scrollTop = editor.scrollTop;
     layer.scrollLeft = editor.scrollLeft;
+  }
+
+  function syncPeerEditors(sourceEditor, sourceIndex) {
+    if (!state.syncScroll || syncingScroll) return;
+    syncingScroll = true;
+    const sourceVerticalMax = Math.max(0, sourceEditor.scrollHeight - sourceEditor.clientHeight);
+    const sourceHorizontalMax = Math.max(0, sourceEditor.scrollWidth - sourceEditor.clientWidth);
+    const verticalRatio = sourceVerticalMax ? sourceEditor.scrollTop / sourceVerticalMax : 0;
+    const horizontalRatio = sourceHorizontalMax ? sourceEditor.scrollLeft / sourceHorizontalMax : 0;
+    grid.querySelectorAll(".editor-pane").forEach((pane, paneIndex) => {
+      if (paneIndex === sourceIndex) return;
+      const editor = pane.querySelector(".text-editor");
+      const layer = pane.querySelector(".highlight-layer");
+      editor.scrollTop = verticalRatio * Math.max(0, editor.scrollHeight - editor.clientHeight);
+      editor.scrollLeft = horizontalRatio * Math.max(0, editor.scrollWidth - editor.clientWidth);
+      syncScroll(editor, layer);
+    });
+    requestAnimationFrame(() => { syncingScroll = false; });
+  }
+
+  function setDetailView(enabled) {
+    state.detailView = enabled;
+    document.querySelector("#detailViewToggle").checked = enabled;
+    editorGrid.hidden = enabled;
+    detailView.hidden = !enabled;
+    save();
+    renderComparison();
   }
 
   function buildPanes() {
@@ -348,7 +527,10 @@
         save();
         scheduleRender();
       });
-      editor.addEventListener("scroll", () => syncScroll(editor, layer));
+      editor.addEventListener("scroll", () => {
+        syncScroll(editor, layer);
+        syncPeerEditors(editor, i);
+      });
       editor.addEventListener("focus", () => setActivePane(i));
       title.addEventListener("focus", () => setActivePane(i));
       pane.querySelector(".copy-button").addEventListener("click", () => copyPane(i));
@@ -417,6 +599,7 @@
   function goToMatch(direction) {
     updateMatches(false);
     if (!state.matches.length) return;
+    if (state.detailView) setDetailView(false);
     state.matchIndex = (state.matchIndex + direction + state.matches.length) % state.matches.length;
     const match = state.matches[state.matchIndex];
     state.activePane = match.paneIndex;
@@ -485,6 +668,14 @@
       save();
       renderComparison();
     });
+    document.querySelector("#syncScrollToggle").addEventListener("change", event => {
+      state.syncScroll = event.target.checked;
+      save();
+      showToast(state.syncScroll ? "同步滾動已開啟" : "同步滾動已關閉");
+    });
+    document.querySelector("#detailViewToggle").addEventListener("change", event => {
+      setDetailView(event.target.checked);
+    });
     document.querySelector("#openFind").addEventListener("click", () => toggleFind());
     document.querySelector("#closeFind").addEventListener("click", () => toggleFind(false));
     document.querySelector("#findNext").addEventListener("click", () => goToMatch(1));
@@ -520,6 +711,10 @@
     document.querySelectorAll("#paneCount button").forEach(button => button.classList.toggle("is-active", Number(button.dataset.count) === state.paneCount));
     document.querySelectorAll("#compareMode button").forEach(button => button.classList.toggle("is-active", button.dataset.mode === state.mode));
     document.querySelector("#highlightToggle").checked = state.highlight;
+    document.querySelector("#syncScrollToggle").checked = state.syncScroll;
+    document.querySelector("#detailViewToggle").checked = state.detailView;
+    editorGrid.hidden = state.detailView;
+    detailView.hidden = !state.detailView;
   }
 
   restore();

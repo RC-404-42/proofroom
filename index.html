@@ -13,7 +13,7 @@
       <div class="brand" aria-label="校稿間">
         <span class="brand-mark" aria-hidden="true">校</span>
         <div>
-          <h1>校稿間</h1>
+          <div class="brand-title-row"><h1>校稿間</h1><span class="version-badge">v1.0.1</span></div>
           <p>多版本文字比較</p>
         </div>
       </div>
@@ -45,11 +45,23 @@
           </div>
         </div>
 
-        <label class="switch-control">
-          <input type="checkbox" id="highlightToggle" checked />
-          <span class="switch" aria-hidden="true"></span>
-          <span>相似內容高亮</span>
-        </label>
+        <div class="toggle-cluster">
+          <label class="switch-control">
+            <input type="checkbox" id="highlightToggle" checked />
+            <span class="switch" aria-hidden="true"></span>
+            <span>相似內容高亮</span>
+          </label>
+          <label class="switch-control">
+            <input type="checkbox" id="syncScrollToggle" />
+            <span class="switch" aria-hidden="true"></span>
+            <span>同步滾動</span>
+          </label>
+          <label class="switch-control">
+            <input type="checkbox" id="detailViewToggle" />
+            <span class="switch" aria-hidden="true"></span>
+            <span>精準對照</span>
+          </label>
+        </div>
 
         <button type="button" class="tool-button find-trigger" id="openFind" aria-expanded="false" aria-controls="findPanel">
           <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg>
@@ -92,6 +104,19 @@
       </section>
 
       <section class="editor-grid" id="editorGrid" data-count="3" aria-label="稿件比較區"></section>
+
+      <section class="detail-view" id="detailView" hidden aria-label="精準對照檢視">
+        <header class="detail-view-header">
+          <div>
+            <strong>精準對照</strong>
+            <span>以 A 稿為基準排列對應句；此畫面為唯讀，關閉開關即可繼續編輯。</span>
+          </div>
+          <span id="detailRowCount">0 組對應句</span>
+        </header>
+        <div class="detail-scroll">
+          <div class="detail-grid" id="detailGrid"></div>
+        </div>
+      </section>
     </main>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
