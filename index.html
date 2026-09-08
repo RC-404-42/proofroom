@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="可同時編輯、搜尋取代並比較二至四份文字的校對工作台。" />
+    <meta name="theme-color" content="#0b0c10" />
+    <title>校稿間｜多版本文字比較</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand" aria-label="校稿間">
+        <span class="brand-mark" aria-hidden="true">校</span>
+        <div>
+          <h1>校稿間</h1>
+          <p>多版本文字比較</p>
+        </div>
+      </div>
+
+      <div class="header-summary" aria-live="polite">
+        <span class="status-dot"></span>
+        <span id="compareSummary">等待輸入文字</span>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <section class="control-deck" aria-label="比較設定">
+        <div class="control-group">
+          <span class="control-label">稿件數量</span>
+          <div class="segmented" id="paneCount" role="group" aria-label="選擇稿件數量">
+            <button type="button" data-count="2">2 份</button>
+            <button type="button" data-count="3" class="is-active">3 份</button>
+            <button type="button" data-count="4">4 份</button>
+          </div>
+        </div>
+
+        <div class="divider" aria-hidden="true"></div>
+
+        <div class="control-group">
+          <span class="control-label">比較方式</span>
+          <div class="segmented" id="compareMode" role="group" aria-label="選擇比較方式">
+            <button type="button" data-mode="line">逐行對比</button>
+            <button type="button" data-mode="smart" class="is-active">智慧相似</button>
+          </div>
+        </div>
+
+        <label class="switch-control">
+          <input type="checkbox" id="highlightToggle" checked />
+          <span class="switch" aria-hidden="true"></span>
+          <span>相似內容高亮</span>
+        </label>
+
+        <button type="button" class="tool-button find-trigger" id="openFind" aria-expanded="false" aria-controls="findPanel">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg>
+          尋找／取代
+          <kbd>Ctrl F</kbd>
+        </button>
+      </section>
+
+      <section class="find-panel" id="findPanel" hidden aria-label="尋找與取代">
+        <div class="field-stack">
+          <label for="findInput">尋找</label>
+          <input id="findInput" type="text" autocomplete="off" placeholder="輸入要尋找的文字" />
+        </div>
+        <div class="field-stack">
+          <label for="replaceInput">取代為</label>
+          <input id="replaceInput" type="text" autocomplete="off" placeholder="輸入新文字" />
+        </div>
+        <label class="compact-check"><input type="checkbox" id="caseSensitive" /> 區分大小寫</label>
+        <label class="compact-check"><input type="checkbox" id="allPanes" /> 搜尋全部稿件</label>
+        <div class="find-count" id="findCount" aria-live="polite">0 筆</div>
+        <div class="find-actions">
+          <button type="button" class="icon-button" id="findPrev" title="上一筆" aria-label="上一筆">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 14 5-5 5 5"></path></svg>
+          </button>
+          <button type="button" class="icon-button" id="findNext" title="下一筆" aria-label="下一筆">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"></path></svg>
+          </button>
+          <button type="button" class="tool-button" id="replaceOne">取代</button>
+          <button type="button" class="tool-button" id="replaceAll">全部取代</button>
+          <button type="button" class="icon-button close-find" id="closeFind" title="關閉" aria-label="關閉尋找與取代">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"></path></svg>
+          </button>
+        </div>
+      </section>
+
+      <section class="legend" aria-label="高亮圖例">
+        <span><i class="legend-swatch exact"></i> 完全相同</span>
+        <span><i class="legend-swatch similar"></i> 相似片段</span>
+        <span class="legend-note">智慧模式會跨行尋找，逐行模式只比較相同行號。</span>
+      </section>
+
+      <section class="editor-grid" id="editorGrid" data-count="3" aria-label="稿件比較區"></section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <template id="paneTemplate">
+      <article class="editor-pane">
+        <header class="pane-header">
+          <div class="pane-identity">
+            <span class="pane-letter"></span>
+            <input class="pane-title" type="text" aria-label="稿件名稱" />
+          </div>
+          <div class="pane-actions">
+            <button type="button" class="icon-button paste-button" title="貼上" aria-label="貼上">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 5h6M9 3h6v4H9z"></path><path d="M7 5H5v16h14V5h-2"></path></svg>
+            </button>
+            <button type="button" class="icon-button copy-button" title="複製" aria-label="複製">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="12" rx="1"></rect><path d="M16 8V4H5v12h3"></path></svg>
+            </button>
+          </div>
+        </header>
+        <div class="editor-wrap">
+          <pre class="highlight-layer" aria-hidden="true"></pre>
+          <textarea class="text-editor" spellcheck="false" wrap="soft"></textarea>
+        </div>
+        <footer class="pane-footer">
+          <span class="pane-status">尚未輸入</span>
+          <span class="pane-stats">0 字 · 1 行</span>
+        </footer>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
