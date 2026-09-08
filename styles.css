@@ -220,28 +220,32 @@ button { color: inherit; }
 }
 .highlight-layer {
   z-index: 1;
-  color: #d8dae2;
+  color: transparent;
   pointer-events: none;
-  scrollbar-width: none;
+  scrollbar-color: transparent transparent;
+  scrollbar-width: thin;
 }
-.highlight-layer::-webkit-scrollbar { display: none; }
-.editor-placeholder { color: #626878; }
-.highlight-layer mark { color: inherit; }
+.highlight-layer::-webkit-scrollbar, .text-editor::-webkit-scrollbar { width: 10px; height: 10px; }
+.highlight-layer::-webkit-scrollbar-thumb, .highlight-layer::-webkit-scrollbar-track { background: transparent; }
+.text-editor::-webkit-scrollbar-thumb { background: #3a3e49; border-radius: 999px; }
+.text-editor::-webkit-scrollbar-track { background: transparent; }
+.editor-placeholder { color: transparent; }
+.highlight-layer mark { color: transparent; }
 .text-editor {
   z-index: 2;
   resize: none;
   background: transparent;
-  color: transparent;
+  color: #d8dae2;
   caret-color: var(--text);
   outline: none;
   scrollbar-color: #3a3e49 transparent;
   scrollbar-width: thin;
 }
-.text-editor::selection { color: transparent; background: rgba(214, 255, 87, .3); }
-.text-editor::placeholder { color: transparent; }
+.text-editor::selection { color: #ffffff; background: rgba(214, 255, 87, .32); }
+.text-editor::placeholder { color: #626878; }
 .highlight-layer .line { display: inline; }
-.highlight-layer .exact-match { color: #eafff9; background: rgba(84, 232, 203, .2); box-shadow: inset 0 -1px rgba(84, 232, 203, .6); border-radius: 2px; }
-.highlight-layer .similar-match { color: #f0ebff; background: rgba(169, 143, 255, .22); box-shadow: inset 0 -1px rgba(169, 143, 255, .68); border-radius: 2px; }
+.highlight-layer .exact-match { color: transparent; background: rgba(84, 232, 203, .2); box-shadow: inset 0 -1px rgba(84, 232, 203, .6); border-radius: 2px; }
+.highlight-layer .similar-match { color: transparent; background: rgba(169, 143, 255, .22); box-shadow: inset 0 -1px rgba(169, 143, 255, .68); border-radius: 2px; }
 .highlight-layer .search-match { outline: 1px solid rgba(255, 189, 74, .75); background: rgba(255, 189, 74, .28); border-radius: 2px; }
 .highlight-layer .search-current { outline: 2px solid #ffc65c; background: rgba(255, 189, 74, .5); }
 .pane-status.is-match { color: var(--cyan); }
