@@ -1,10 +1,10 @@
 (() => {
   "use strict";
 
-  const MAX_PANES = 4;
+  const MAX_PANES = 5;
   const STORAGE_KEY = "proofroom-v1";
-  const letters = ["A", "B", "C", "D"];
-  const defaultNames = ["基準稿", "版本 B", "版本 C", "版本 D"];
+  const letters = ["A", "B", "C", "D", "E"];
+  const defaultNames = ["基準稿", "版本 B", "版本 C", "版本 D", "版本 E"];
   const state = {
     paneCount: 3,
     mode: "smart",
@@ -39,7 +39,7 @@
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
       if (!saved) return;
-      state.paneCount = [2, 3, 4].includes(saved.paneCount) ? saved.paneCount : 3;
+      state.paneCount = [2, 3, 4, 5].includes(saved.paneCount) ? saved.paneCount : 3;
       state.mode = saved.mode === "line" ? "line" : "smart";
       state.highlight = saved.highlight !== false;
       state.syncScroll = saved.syncScroll === true;
